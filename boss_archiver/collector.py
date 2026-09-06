@@ -6,10 +6,11 @@
 from __future__ import annotations
 
 import logging
+import time
 from dataclasses import dataclass, field
 
 from .browser import BrowserSession
-from .config import Settings
+from .config import Settings, filter_params_missing
 from .errors import ChallengeError, CollectorError, LoginError
 from .models import Job, dedupe_jobs
 from .pacing import PacingPolicy
@@ -79,7 +80,16 @@ class Collector:
                 self.page_pacer.wait()  # 每次筛选点击也是页面动作，遵守节拍
                 if not browser.select_filter(field, label):
                     raise CollectorError(f"自动筛选失败：类别「{field}」选项「{label}」未生效")
-            logger.info("筛选条件已自动应用：%s", filters)
+            time.sleep(1.2)  # 等最后一次点击的 URL 状态更新
+            missing = filter_params_missing(filters, browser.url)
+            if missing:
+                raise CollectorError(
+                    f"筛选未在页面 URL 生效（缺失参数：{missing}），当前 URL：{browser.url[:180]}；"
+                    "请稍后重试（若页面结构变化请更新 FILTER_FIELD_TO_PARAM）"
+                )
+            logger.info("筛选条件已应用并经 URL 校验：%s（URL=%s）", filters, browser.url[:200])
+            browser.restart_listener()  # 丢弃点击过程中缓冲的旧响应，只捕获筛选后结果
+            browser.trigger_search(s.query)  # 以当前筛选状态重新发起一次列表请求
         payload, first_jobs = self._next_payload(browser, timeout_s=12.0 if filters else 8.0)
         if payload is None:
             logger.info("首屏未捕获职位数据，强制触发一次搜索…")

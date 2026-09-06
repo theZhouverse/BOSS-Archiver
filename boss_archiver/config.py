@@ -19,6 +19,24 @@ FILTER_FIELD_TO_CATEGORY: dict[str, str] = {
     "degree": "学历要求",
 }
 
+# 字段前缀 → 页面 URL 参数名（别名兜底：点击后 URL 会出现对应参数即视为生效）
+FILTER_FIELD_TO_PARAM: dict[str, tuple[str, ...]] = {
+    "jobType": ("jobType",),
+    "salary": ("salary",),
+    "exp": ("experience", "exp"),
+    "degree": ("degree",),
+}
+
+
+def filter_params_missing(filters: list[tuple[str, str]], url: str) -> list[str]:
+    """返回 URL 中未体现的筛选字段（空列表 = 全部生效）。"""
+    missing: list[str] = []
+    for field, _label in filters:
+        aliases = FILTER_FIELD_TO_PARAM.get(field, (field,))
+        if not any(f"{alias}=" in url for alias in aliases):
+            missing.append(field)
+    return missing
+
 # 自动筛选可选值（与页面显示文本一致；不传 = 不限）
 FILTER_CHOICES: dict[str, tuple[str, ...]] = {
     "job_type": ("全职", "兼职", "实习"),

@@ -149,14 +149,41 @@ class BrowserSession:
     def start_listening(self) -> None:
         self.page.listen.start(JOBLIST_LISTENER_KEYWORD)
 
+    def restart_listener(self) -> None:
+        """重启监听以丢弃旧缓冲响应：筛选条件变化后必须调用，否则会捕获到旧请求。"""
+        try:
+            self.page.listen.stop()
+        except Exception as exc:
+            logger.debug("停止监听异常（忽略）：%s", exc)
+        self.page.listen.start(JOBLIST_LISTENER_KEYWORD)
+
     def goto_job_list(self) -> None:
         self.page.get(self.settings.list_url())
+
+    def goto_url(self, url: str) -> None:
+        self.page.get(url)
 
     def trigger_search(self, query: str = "") -> None:
         """在检索页执行搜索：填充关键词并点击搜索（query 为空则只点击）。"""
         literal = json.dumps(query or "")
         script = SEARCH_JS.replace("__QUERY__", literal)
         self.page.run_js(script)
+
+    def scroll_bottom(self) -> None:
+        """滚动到底部，触发列表懒加载分页请求。"""
+        self.page.run_js("window.scrollTo(0, document.body.scrollHeight);")
+
+    def iter_joblist_responses(self, timeout_s: float):
+        """在窗口期内产出业务成功（code==0）的监听响应体；异常时安全结束。"""
+        if self.page is None:
+            return
+        try:
+            for data in self.page.listen.steps(timeout=timeout_s):
+                body = data.response.body
+                if isinstance(body, dict) and body.get("code") == 0:
+                    yield body
+        except Exception as exc:
+            logger.debug("监听窗口结束：%s", exc)
 
     # ---- 自动筛选（替代人工微调步骤） ----
     def ensure_filter_bar(self, timeout_s: float = 15.0) -> bool:
@@ -183,85 +210,50 @@ class BrowserSession:
         return visible or list(blocks)
 
     def select_filter(self, field: str, label: str) -> bool:
-        """按页面文本选择筛选项（li[ka="sel-job-rec-{field}-{code}"]），点击即生效。
+        """在筛选面板点击选项（li[ka="sel-job-rec-{field}-{code}"] + 页面文本）。
 
-        返回 False 表示未找到类别/选项（上层给出可读错误）；
-        点击成功返回 True，选中文本确认只记日志不阻塞。
+        生效确认不在本层：由 collector 通过 URL 参数（filter_params_in_url）校验。
         """
-        category = FILTER_FIELD_TO_CATEGORY.get(field)
-        if category is None:
-            logger.warning("未知筛选字段：%s", field)
-            return False
+        prefix = f"sel-job-rec-{field}-"
+        category = FILTER_FIELD_TO_CATEGORY.get(field, field)
+        available: list[str] = []
         for block in self._filter_blocks():
-            head_text = ""
-            head = None
-            try:
-                head = block.ele("css:.current-select", timeout=1)
-                head_text = (head.text or "").strip()
-            except Exception:
-                pass
-            if category not in head_text:
-                continue
-            if head is not None:  # 展开下拉面板再点选项
-                try:
-                    head.click()
-                    time.sleep(0.6)
-                except Exception:
-                    pass
             try:
                 options = block.eles("css:.filter-select-dropdown li", timeout=3)
             except Exception:
                 options = []
-            available: list[str] = []
             for option in options:
+                ka = ""
+                try:
+                    ka = option.attr("ka") or ""
+                except Exception:
+                    pass
+                if not ka.startswith(prefix):
+                    continue
                 try:
                     text = (option.text or "").strip()
                 except Exception:
                     text = ""
-                available.append(text or "")
-                if text == label:
-                    try:
-                        option.click()
-                    except Exception as exc:
-                        logger.debug("筛选选项点击失败：%s", exc)
-                        return False
-                    confirmed = self._confirm_selected(block, label)
-                    logger.info("筛选「%s」= %s 已点击%s", category, label,
-                                "，已确认生效" if confirmed else "（文本确认超时，继续观察）")
-                    return True
-            logger.warning("类别「%s」下未找到选项「%s」，现有：%s", category, label, "、".join(available))
-            return False
-        logger.warning("未找到筛选类别「%s」对应的下拉框", category)
+                available.append(text)
+                if text != label:
+                    continue
+                # 展开类别下拉后再点击选项
+                try:
+                    head = block.ele("css:.current-select", timeout=1)
+                    if head is not None and label not in (head.text or ""):
+                        head.click()
+                        time.sleep(0.8)
+                except Exception:
+                    pass
+                try:
+                    option.click()
+                except Exception as exc:
+                    logger.debug("筛选选项点击失败：%s", exc)
+                    return False
+                logger.info("筛选「%s」= %s 已点击", category, label)
+                return True
+        logger.warning("筛选类别「%s」未找到选项「%s」，现有：%s", category, label, "、".join(available))
         return False
-
-    def _confirm_selected(self, block, label: str) -> bool:
-        """点击后短窗口内确认选中文本出现（宽松确认，失败不致命）。"""
-        deadline = time.monotonic() + 2.5
-        while time.monotonic() < deadline:
-            try:
-                current = block.ele("css:.current-select", timeout=1)
-                if current is not None and label in (current.text or ""):
-                    return True
-            except Exception:
-                pass
-            time.sleep(0.4)
-        return False
-
-    def scroll_bottom(self) -> None:
-        """滚动到底部，触发列表懒加载分页请求。"""
-        self.page.run_js("window.scrollTo(0, document.body.scrollHeight);")
-
-    def iter_joblist_responses(self, timeout_s: float):
-        """在窗口期内产出业务成功（code==0）的监听响应体；异常时安全结束。"""
-        if self.page is None:
-            return
-        try:
-            for data in self.page.listen.steps(timeout=timeout_s):
-                body = data.response.body
-                if isinstance(body, dict) and body.get("code") == 0:
-                    yield body
-        except Exception as exc:
-            logger.debug("监听窗口结束：%s", exc)
 
     def fetch_job_detail(self, job_id: str) -> str:
         """新开标签页抓职位描述，读取后关闭；描述缺失返回空串。

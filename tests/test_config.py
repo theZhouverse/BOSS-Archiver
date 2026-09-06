@@ -71,6 +71,19 @@ def test_filter_pairs_order():
     assert s.has_filters() is True
 
 
+def test_filter_params_missing():
+    from boss_archiver.config import filter_params_missing
+
+    filters = [("jobType", "全职"), ("salary", "10-20K"), ("exp", "3-5年"), ("degree", "本科")]
+    url = "https://www.zhipin.com/web/geek/jobs?city=1&jobType=1901&salary=405&experience=105&degree=203&query=x"
+    assert filter_params_missing(filters, url) == []
+    assert filter_params_missing(filters, "https://www.zhipin.com/web/geek/jobs?city=1") == [
+        "jobType", "salary", "exp", "degree",
+    ]
+    # exp 的别名兜底
+    assert filter_params_missing([("exp", "3-5年")], "https://x/?exp=105") == []
+
+
 def test_list_url_contains_city_and_query():
     settings = Settings(city="杭州", query="Java开发")
     url = settings.list_url()
