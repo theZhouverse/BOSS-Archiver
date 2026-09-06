@@ -1,0 +1,3 @@
+# 运行时依赖（权威位置：本文件；安装命令：pip install -r requirements.txt）
+DrissionPage>=4.1,<5
+jsonpath>=0.82

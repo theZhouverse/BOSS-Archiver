@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# 测试与静态检查
+.pytest_cache/
+.mypy_cache/
+
+# 运行产物（浏览器登录态、日志、输出数据）
+.runtime/
+out/
+logs/
+*.log
+
+# 抓取结果数据：不进仓库（个人数据，仅本地使用）
+*.csv
+!tests/fixtures/*.csv
+
+# 环境与密钥
+.env
+*.pem
+*.key
+credentials.json
+
+# IDE / 系统
+.idea/
+.vscode/
+Thumbs.db
+Desktop.ini
