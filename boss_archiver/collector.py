@@ -67,29 +67,27 @@ class Collector:
         s = self.settings
         browser.start_listening()
 
-        # ---- 首屏与（可选的）人工筛选 ----
+        # ---- 首屏：打开检索页 →（可选）自动应用筛选 → 捕获第一页 ----
         logger.info("打开检索页：%s", s.list_url())
         browser.goto_job_list()
-        if s.refine_filters:
-            browser.trigger_search(s.query)
-            if not browser.wait_filter_bar(3.0):
-                logger.warning("未等到筛选栏（css:.search-condition），继续尝试抓取…")
-            print(">>> 请在浏览器中按需微调筛选条件（薪资/学历/城市等），确认后回到控制台按回车开始抓取…")
-            try:
-                input()
-            except EOFError:
-                pass
+        filters = s.filter_pairs()
+        if filters:
+            if not browser.ensure_filter_bar():
+                raise CollectorError("未等到筛选面板（.condition-filter-select），请稍后重试或去掉筛选参数")
+            for field, label in filters:
+                self._assert_safe(browser)
+                self.page_pacer.wait()  # 每次筛选点击也是页面动作，遵守节拍
+                if not browser.select_filter(field, label):
+                    raise CollectorError(f"自动筛选失败：类别「{field}」选项「{label}」未生效")
+            logger.info("筛选条件已自动应用：%s", filters)
+        payload, first_jobs = self._next_payload(browser, timeout_s=12.0 if filters else 8.0)
+        if payload is None:
+            logger.info("首屏未捕获职位数据，强制触发一次搜索…")
             browser.trigger_search(s.query)
             payload, first_jobs = self._next_payload(browser, timeout_s=12.0)
-        else:
-            payload, first_jobs = self._next_payload(browser, timeout_s=8.0)
-            if payload is None:
-                logger.info("首屏未捕获职位数据，强制触发一次搜索…")
-                browser.trigger_search(s.query)
-                payload, first_jobs = self._next_payload(browser, timeout_s=12.0)
         if payload is None:
             raise CollectorError(
-                "未捕获到职位数据：请确认已扫码登录、城市与关键词正确；"
+                "未捕获到职位数据：请确认已扫码登录、城市与关键词/筛选条件正确；"
                 "若刚触发过安全校验请稍后再试并降低 --pages"
             )
 

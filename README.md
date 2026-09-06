@@ -14,6 +14,8 @@
 - **可选人工微调**：抓取前暂停，可在浏览器里再手动调整薪资/学历等筛选条件（默认开启）
 - 自动分页 + 按职位 ID 去重；并发为 0——详情页串行抓取并受节拍限制
 - **职位描述默认不抓**（--detail 显式开启，单轮上限 --max-details 默认 10 次），避免高频开页触发平台风控
+- **筛选自动化**：--job-type/--salary/--experience/--degree 直接传页面文本（如 --salary 10-20K），
+  自动操作筛选面板（选项从页面实时发现，不依赖硬编码 code），无需人工介入
 - 登录态复用：浏览器用户数据目录持久化（.runtime/browser_profile），扫码一次长期复用
 - 风控护栏（保守档）：翻页间隔 4~6s、详情间隔 3~5s（含随机抖动）；页数上限 4；单轮详情上限 10；
   检测到验证码/安全校验/登录失效立即熔断退出并提示
@@ -38,8 +40,8 @@ Windows + Python 3.10+（本项目在 3.10 上验证；DrissionPage 4.1.1.4）�
     # 控制页数与详情条数
     python -m boss_archiver --city 北京 --query AI产品经理 --pages 1 --detail --max-details 5
 
-    # 跳过“人工微调筛选”的暂停，全自动执行
-    python -m boss_archiver --city 深圳 --query 数据分析 --no-refine
+    # 自动筛选：全职 + 10-20K + 本科 + 3-5年（条件任意组合）
+    python -m boss_archiver --city 深圳 --query 数据分析 --job-type 全职 --salary 10-20K --degree 本科 --experience 3-5年
 
     # 城市直接传 code；指定输出文件
     python -m boss_archiver --city 101210100 --query 测试 --out my.csv
@@ -48,8 +50,8 @@ Windows + Python 3.10+（本项目在 3.10 上验证；DrissionPage 4.1.1.4）�
     python -m boss_archiver --city 杭州 --query Go --verbose
 
 流程说明：脚本会打开带登录态的浏览器窗口 → 若登录失效则引导扫码（一次，之后复用）→
-按参数打开检索页并发起搜索 →（默认）等待你在浏览器里微调筛选条件后按回车 → 自动翻页收集 →
-（仅加 --detail 时）以 3~5s 间隔串行抓取最多 10 条职位描述 → 写入 out/ 目录 CSV。
+按参数打开检索页 →（传了筛选参数时）自动在筛选面板选择生效 → 自动翻页收集 →
+（仅加 --detail 时）以 3~5s 间隔串行抓取最多 10 条职位描述 → 写入 out/ 目录 CSV。全程自动化，无需人工干预。
 
 ## 开发与验证（最终 Gate）
 

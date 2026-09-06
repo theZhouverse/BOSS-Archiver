@@ -70,6 +70,14 @@
   - 产出：out/boss直聘_杭州_Java开发_*.csv
 - Commits: a44a6ff（保守档）、4da019c（登录复用修复）、317c954/后续 docs 提交（证据回填）
 
+## T9 人工筛选步骤改为自动化（用户要求）
+
+- Status: IN_PROGRESS（实现完成，待真机验证后置 DONE）
+- Goal: 移除「人工暂停调筛选后回车」设计；新增 --job-type/--salary/--experience/--degree，
+  基于页面 li[ka="sel-job-rec-{field}-{code}"] 运行时发现并自动点击（每次筛选点击同样受节拍约束）
+- Trace To: SPEC FR-8 / D7（修订）
+- Verification: pytest 全绿 + 真机 1 页筛选验证（CSV 学历/薪资字段与条件一致）
+
 ## Review Findings
 
 见 docs/REVIEWS.md；已解决的以 Commit 关联闭环。

@@ -36,3 +36,12 @@
 - Impact: 默认单次运行开页数从 30+ 降至 ≤10，动作间隔整体放宽约 3 倍
 - Action Task: T8
 - Commit: a44a6ff / 4da019c（T8 闭环）
+
+## Finding R-2026-09-07-02（人工筛选暂停 → 自动化，用户要求）
+- Status: Resolved（T9）
+- Context: 原设计保留“人工在浏览器调筛选后回车”步骤（D7）；用户要求改为自动化。
+- Decision: 筛选下拉选项结构为 li[ka="sel-job-rec-{field}-{code}"] + 页面文本，
+  label→code 运行时从 DOM 发现（无需硬编码平台 code 表）；
+  CLI 增加 --job-type/--salary/--experience/--degree（choices 与页面文本一致）；
+  每次筛选点击复用翻页节拍；选项不可见时报错而不是静默跳过
+- Commit: （T9 闭环提交）

@@ -51,6 +51,26 @@ def test_settings_trims_query_and_validates_city():
     assert settings.query == "Java开发"
 
 
+def test_filter_choices_validation():
+    Settings(job_type="全职").validate()
+    Settings(salary="10-20K").validate()
+    Settings(experience="3-5年", degree="本科").validate()
+    for bad in (("job_type", "非全职"), ("salary", "100K"),
+                ("experience", "随便"), ("degree", "博士后")):
+        with pytest.raises(UsageError):
+            Settings(**{bad[0]: bad[1]}).validate()
+
+
+def test_filter_pairs_order():
+    s = Settings(job_type="全职", salary="10-20K", experience="3-5年", degree="本科")
+    assert s.filter_pairs() == [
+        ("jobType", "全职"), ("salary", "10-20K"), ("exp", "3-5年"), ("degree", "本科"),
+    ]
+    assert Settings().filter_pairs() == []
+    assert Settings().has_filters() is False
+    assert s.has_filters() is True
+
+
 def test_list_url_contains_city_and_query():
     settings = Settings(city="杭州", query="Java开发")
     url = settings.list_url()

@@ -8,7 +8,7 @@ from pathlib import Path
 
 from . import __version__
 from .collector import Collector
-from .config import CITY_CODES, Settings
+from .config import CITY_CODES, FILTER_CHOICES, Settings
 from .errors import ChallengeError, CollectorError, LoginError, UsageError
 from .writer import default_output_path, write_csv
 
@@ -28,7 +28,14 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--detail", action="store_true", help="抓取职位描述（默认只导列表；--max-details 控制条数）")
     parser.add_argument("--max-details", type=int, default=10,
                         help="单轮详情抓取次数上限（默认 10，含失败尝试）")
-    parser.add_argument("--no-refine", action="store_true", help="跳过人工微调筛选的暂停，全自动执行")
+    parser.add_argument("--job-type", choices=FILTER_CHOICES["job_type"],
+                        help="求职类型筛选（页面自动选择，如 全职）")
+    parser.add_argument("--salary", choices=FILTER_CHOICES["salary"],
+                        help="薪资筛选（如 10-20K）")
+    parser.add_argument("--experience", choices=FILTER_CHOICES["experience"],
+                        help="经验筛选（如 3-5年）")
+    parser.add_argument("--degree", choices=FILTER_CHOICES["degree"],
+                        help="学历筛选（如 本科）")
     parser.add_argument("--out", type=Path, default=None,
                         help="输出文件路径（默认 out/boss直聘_城市_关键词_时间戳.csv）")
     parser.add_argument("--profile", type=Path, default=None,
@@ -62,7 +69,10 @@ def main(argv: list[str] | None = None) -> int:
             pages=args.pages,
             fetch_details=args.detail,
             max_details_per_run=args.max_details,
-            refine_filters=not args.no_refine,
+            job_type=args.job_type,
+            salary=args.salary,
+            experience=args.experience,
+            degree=args.degree,
             profile_dir=args.profile if args.profile is not None else Path(".runtime") / "browser_profile",
             output_path=args.out,
             headless=args.headless,

@@ -12,6 +12,7 @@ import time
 from DrissionPage import ChromiumOptions, ChromiumPage
 
 from .config import (
+    FILTER_FIELD_TO_CATEGORY,
     JOB_DETAIL_URL_TPL,
     JOBLIST_LISTENER_KEYWORD,
     LOGIN_URL,
@@ -157,13 +158,94 @@ class BrowserSession:
         script = SEARCH_JS.replace("__QUERY__", literal)
         self.page.run_js(script)
 
-    def wait_filter_bar(self, timeout_s: float = 3.0) -> bool:
-        """等待筛选栏渲染（失败不致命，返回 False 由上层决策）。"""
+    # ---- 自动筛选（替代人工微调步骤） ----
+    def ensure_filter_bar(self, timeout_s: float = 15.0) -> bool:
+        """等待筛选下拉（.condition-filter-select）渲染；不存在返回 False。"""
         try:
-            self.page.wait.ele_displayed("css:.search-condition", timeout=timeout_s)
+            self.page.wait.ele_displayed("css:.condition-filter-select", timeout=timeout_s)
             return True
         except Exception:
             return False
+
+    def _filter_blocks(self) -> list:
+        """当前渲染的筛选块（优先可见块）。"""
+        try:
+            blocks = self.page.eles("css:.condition-filter-select", timeout=2)
+        except Exception:
+            return []
+        visible: list = []
+        for block in blocks:
+            try:
+                if block.states.is_displayed:
+                    visible.append(block)
+            except Exception:
+                visible.append(block)
+        return visible or list(blocks)
+
+    def select_filter(self, field: str, label: str) -> bool:
+        """按页面文本选择筛选项（li[ka="sel-job-rec-{field}-{code}"]），点击即生效。
+
+        返回 False 表示未找到类别/选项（上层给出可读错误）；
+        点击成功返回 True，选中文本确认只记日志不阻塞。
+        """
+        category = FILTER_FIELD_TO_CATEGORY.get(field)
+        if category is None:
+            logger.warning("未知筛选字段：%s", field)
+            return False
+        for block in self._filter_blocks():
+            head_text = ""
+            head = None
+            try:
+                head = block.ele("css:.current-select", timeout=1)
+                head_text = (head.text or "").strip()
+            except Exception:
+                pass
+            if category not in head_text:
+                continue
+            if head is not None:  # 展开下拉面板再点选项
+                try:
+                    head.click()
+                    time.sleep(0.6)
+                except Exception:
+                    pass
+            try:
+                options = block.eles("css:.filter-select-dropdown li", timeout=3)
+            except Exception:
+                options = []
+            available: list[str] = []
+            for option in options:
+                try:
+                    text = (option.text or "").strip()
+                except Exception:
+                    text = ""
+                available.append(text or "")
+                if text == label:
+                    try:
+                        option.click()
+                    except Exception as exc:
+                        logger.debug("筛选选项点击失败：%s", exc)
+                        return False
+                    confirmed = self._confirm_selected(block, label)
+                    logger.info("筛选「%s」= %s 已点击%s", category, label,
+                                "，已确认生效" if confirmed else "（文本确认超时，继续观察）")
+                    return True
+            logger.warning("类别「%s」下未找到选项「%s」，现有：%s", category, label, "、".join(available))
+            return False
+        logger.warning("未找到筛选类别「%s」对应的下拉框", category)
+        return False
+
+    def _confirm_selected(self, block, label: str) -> bool:
+        """点击后短窗口内确认选中文本出现（宽松确认，失败不致命）。"""
+        deadline = time.monotonic() + 2.5
+        while time.monotonic() < deadline:
+            try:
+                current = block.ele("css:.current-select", timeout=1)
+                if current is not None and label in (current.text or ""):
+                    return True
+            except Exception:
+                pass
+            time.sleep(0.4)
+        return False
 
     def scroll_bottom(self) -> None:
         """滚动到底部，触发列表懒加载分页请求。"""

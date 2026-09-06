@@ -10,6 +10,23 @@ from pathlib import Path
 
 from .errors import UsageError
 
+# 筛选面板：字段前缀 → 页面类别名（下拉框 .current-select .placeholder-text）
+# 选项 li 带 ka="sel-job-rec-{field}-{code}"，label/code 运行时从 DOM 发现，无需硬编码
+FILTER_FIELD_TO_CATEGORY: dict[str, str] = {
+    "jobType": "求职类型",
+    "salary": "薪资待遇",
+    "exp": "工作经验",
+    "degree": "学历要求",
+}
+
+# 自动筛选可选值（与页面显示文本一致；不传 = 不限）
+FILTER_CHOICES: dict[str, tuple[str, ...]] = {
+    "job_type": ("全职", "兼职", "实习"),
+    "salary": ("3K以下", "3-5K", "5-10K", "10-20K", "20-50K", "50K以上"),
+    "experience": ("在校生", "应届生", "经验不限", "1年以内", "1-3年", "3-5年", "5-10年", "10年以上"),
+    "degree": ("初中及以下", "中专/中技", "高中", "大专", "本科", "硕士", "博士"),
+}
+
 # ---- 站点常量 ----
 BASE_URL = "https://www.zhipin.com"
 LOGIN_URL = BASE_URL + "/web/user/?ka=header-login"
@@ -93,7 +110,11 @@ class Settings:
     # 采集控制
     pages: int = 2  # 期望页数，1 <= pages <= max_pages
     fetch_details: bool = False  # 默认只导列表；职位描述需 --detail 显式开启
-    refine_filters: bool = True  # 抓取前暂停，允许人工微调页面筛选条件
+    # 自动筛选条件（None/不传 = 不限；取值见 FILTER_CHOICES）
+    job_type: str | None = None
+    salary: str | None = None
+    experience: str | None = None
+    degree: str | None = None
     # 风控节拍（保守默认值，2026-09-07 经用户确认收敛；下调需人工批准，见 AGENTS.md）
     min_page_interval_s: float = 4.0
     page_interval_jitter_s: float = 2.0
@@ -117,8 +138,31 @@ class Settings:
         if self.min_page_interval_s < 0.5 or self.min_detail_interval_s < 0.3:
             raise UsageError("节拍间隔低于护栏下限（翻页 >=0.5s、详情 >=0.3s），不允许")
         self.query = (self.query or "").strip()
-        # 尽早暴露城市问题
+        # 尽早暴露城市与筛选取值问题
         resolve_city_code(self.city)
+        for attr, choices in FILTER_CHOICES.items():
+            value = getattr(self, attr)
+            if value is not None and value not in choices:
+                raise UsageError(
+                    f"筛选参数 {attr} 取值无效：{value!r}（可选：{'、'.join(choices)}）"
+                )
+
+    def filter_pairs(self) -> list[tuple[str, str]]:
+        """需要自动应用的筛选 (字段前缀, 页面显示文本)，按页面类别顺序。"""
+        pairs: list[tuple[str, str]] = []
+        for field, attr in (
+            ("jobType", "job_type"),
+            ("salary", "salary"),
+            ("exp", "experience"),
+            ("degree", "degree"),
+        ):
+            value = getattr(self, attr)
+            if value:
+                pairs.append((field, value))
+        return pairs
+
+    def has_filters(self) -> bool:
+        return bool(self.filter_pairs())
 
     def city_code(self) -> str:
         return resolve_city_code(self.city)
