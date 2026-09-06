@@ -115,10 +115,15 @@ class BrowserSession:
             return False
 
     def ensure_login(self) -> None:
-        """登录态有效直接返回；否则打开登录页等待人工扫码（最长 login_timeout_s）。"""
+        """登录态有效直接返回；否则打开登录页等待人工扫码（最长 login_timeout_s）。
+
+        先加载一次职位列表页让 profile 内 Cookie 就绪，避免浏览器刚启动
+        （尚未加载任何同域页面）时把“已登录”误判为“未登录”而多走一次登录页。
+        """
         page = self.page
         if page is None:
             raise LoginError("浏览器尚未启动")
+        page.get(self.settings.list_url())
         if self._login_cookies_present():
             logger.info("登录态有效，直接复用")
             return
