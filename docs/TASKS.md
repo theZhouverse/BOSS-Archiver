@@ -38,15 +38,20 @@
 
 ## T6 GitHub 发布
 
-- Status: IN_PROGRESS
+- Status: DONE
 - Goal: 公开仓库 theZhouverse/BOSS-Archiver（与文件夹同名），全新 git 历史，推送 main
-- Verification: gh repo view / git ls-remote 回执
+- Evidence: https://github.com/theZhouverse/BOSS-Archiver（public）；origin/main = 74cdd6a；
+  git ls-remote 确认 refs/heads/main 已推送；v1 旧文件归档于 D:\projects\toy\_boss_zhipin_tool_v1_archive
+- Verification: gh repo create + git ls-remote 回执
 
 ## T7 Project Compass 建档登记（备案）
 
-- Status: TODO
+- Status: DONE
 - Goal: 在本地 Project Compass（127.0.0.1:48327）中登记本项目：repo_path、摘要、ownership=personal、基线 commit
-- Verification: GET /api/projects 可见该项目记录
+- Evidence: Compass 项目 id=61（name=boss_zhipin_tool, status=assessment, repo_path=D:\projects\BOSS-Archiver）；
+  POST /api/projects 返回 201
+- Verification: GET /api/projects?include_all=1 可见 id=61 记录
+- Note: 后续 Review 阶段（成本复核/复盘/HANDOFF/维护登记）在 Compass UI 中继续
 
 ## Review Findings
 
