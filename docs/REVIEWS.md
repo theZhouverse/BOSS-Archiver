@@ -44,4 +44,6 @@
   label→code 运行时从 DOM 发现（无需硬编码平台 code 表）；
   CLI 增加 --job-type/--salary/--experience/--degree（choices 与页面文本一致）；
   每次筛选点击复用翻页节拍；选项不可见时报错而不是静默跳过
-- Commit: （T9 闭环提交）
+- 二次发现: 点击本身生效（URL 出现参数）但捕获到了点击前缓冲的旧列表响应 → 
+  筛选后重启 listener（stop+start）丢弃旧缓冲再触发一次搜索，并以 URL 参数校验
+- Commit: 8812a1f / d1479cb（T9 闭环）

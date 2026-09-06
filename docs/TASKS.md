@@ -72,11 +72,19 @@
 
 ## T9 人工筛选步骤改为自动化（用户要求）
 
-- Status: IN_PROGRESS（实现完成，待真机验证后置 DONE）
+- Status: DONE（2026-09-07）
 - Goal: 移除「人工暂停调筛选后回车」设计；新增 --job-type/--salary/--experience/--degree，
   基于页面 li[ka="sel-job-rec-{field}-{code}"] 运行时发现并自动点击（每次筛选点击同样受节拍约束）
+- 实现要点: 点击后以页面 URL 参数校验生效（jobType=1901&salary=405&experience=105&degree=203），
+  并重启 listener 丢弃旧缓冲响应——否则会捕获到筛选前的旧数据（R-07-02 的教训）
 - Trace To: SPEC FR-8 / D7（修订）
-- Verification: pytest 全绿 + 真机 1 页筛选验证（CSV 学历/薪资字段与条件一致）
+- Verification: pytest 27/27 全绿
+- Evidence（真机 2026-09-07 06:31，杭州/Java开发 1 页 15 条）:
+  - URL 校验通过：jobType=1901&salary=405&experience=105&degree=203
+  - CSV 字段复核：学历 15/15 本科；经验 15/15 含 3-5年；非全职 0；
+    薪资按平台 10-20K 档语义生效（13/15 精确命中，边界条目如 9-13K/13-23K 遵循平台口径）
+  - 产物：out/boss直聘_杭州_Java开发_20260907_063123.csv
+- Commits: 8812a1f（自动筛选功能）、d1479cb（URL 校验+缓冲清理修复）
 
 ## Review Findings
 
