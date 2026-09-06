@@ -53,6 +53,16 @@
 - Verification: GET /api/projects?include_all=1 可见 id=61 记录
 - Note: 后续 Review 阶段（成本复核/复盘/HANDOFF/维护登记）在 Compass UI 中继续
 
+## T8 风控护栏收敛为保守档（用户反馈）
+
+- Status: DONE（2026-09-07）
+- Context: 初版默认档（详情 0.8~1.8s、无单轮上限）真机验证时被用户指出过于激进，
+  连续高频开详情页存在触发平台风控、影响账号的风险（知识库同类教训：紫鸟/微信读书）
+- Decision（用户已通过确认选择批准）: 默认只导列表；详情 --detail 显式开启；页数默认 2/上限 4；
+  详情间隔 ≥3s（±2s）；单轮详情上限 10 次（成功+失败）；翻页间隔 ≥4s（±2s）
+- Trace To: SPEC NFR-1 / FR-3 / FR-5 / AC-2
+- Verification: pytest 全绿；真机复跑（1 页 + 5 条详情）结果见 Evidence 追加
+
 ## Review Findings
 
 见 docs/REVIEWS.md；已解决的以 Commit 关联闭环。

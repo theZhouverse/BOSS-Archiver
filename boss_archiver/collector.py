@@ -23,6 +23,7 @@ logger = logging.getLogger(__name__)
 class CollectorResult:
     jobs: list[Job] = field(default_factory=list)
     pages_fetched: int = 0
+    detail_fetched: int = 0
     detail_failures: int = 0
 
 
@@ -123,26 +124,38 @@ class Collector:
 
         jobs = dedupe_jobs(list(collected.values()))
 
-        # ---- 详情抓取（串行 + 节拍） ----
+        # ---- 详情抓取（默认关闭；开启时串行 + 节拍 + 单轮上限） ----
+        detail_fetched = 0
         detail_failures = 0
         if s.fetch_details:
-            total = len(jobs)
-            logger.info("开始抓取职位描述，共 %d 条（串行，间隔 >=%.1fs）", total, s.min_detail_interval_s)
-            for index, job in enumerate(jobs, start=1):
+            budget = s.max_details_per_run
+            logger.info(
+                "开始抓取职位描述：串行、间隔 >=%.1fs、单轮上限 %d 次",
+                s.min_detail_interval_s, budget,
+            )
+            for job in jobs:
                 if not job.job_id:
                     continue
+                if detail_fetched + detail_failures >= budget:
+                    logger.info("已达单轮详情上限 %d 次，停止详情抓取", budget)
+                    break
                 self._assert_safe(browser)
                 self.detail_pacer.wait()
                 try:
                     job.description = browser.fetch_job_detail(job.job_id)
+                    detail_fetched += 1
                 except ChallengeError:
                     raise
                 except Exception as exc:
                     detail_failures += 1
-                    logger.warning("详情抓取失败 #%d %s：%s", index, job.name or job.job_id, exc)
-                if index % 10 == 0 or index == total:
-                    logger.info("详情进度 %d/%d（失败 %d）", index, total, detail_failures)
+                    logger.warning("详情抓取失败（%s）：%s", job.name or job.job_id, exc)
+                if (detail_fetched + detail_failures) % 5 == 0:
+                    logger.info("详情进度：成功 %d，失败 %d", detail_fetched, detail_failures)
+            logger.info("详情抓取结束：成功 %d，失败 %d", detail_fetched, detail_failures)
 
         return CollectorResult(
-            jobs=jobs, pages_fetched=pages_fetched, detail_failures=detail_failures
+            jobs=jobs,
+            pages_fetched=pages_fetched,
+            detail_fetched=detail_fetched,
+            detail_failures=detail_failures,
         )

@@ -13,8 +13,10 @@
 - **职位检索**：--query 传关键词，自动填入搜索框触发搜索
 - **可选人工微调**：抓取前暂停，可在浏览器里再手动调整薪资/学历等筛选条件（默认开启）
 - 自动分页 + 按职位 ID 去重；并发为 0——详情页串行抓取并受节拍限制
+- **职位描述默认不抓**（--detail 显式开启，单轮上限 --max-details 默认 10 次），避免高频开页触发平台风控
 - 登录态复用：浏览器用户数据目录持久化（.runtime/browser_profile），扫码一次长期复用
-- 风控护栏：固定最小间隔 + 随机抖动；页数/速率硬上限；检测到验证码/登录失效立即熔断退出并提示
+- 风控护栏（保守档）：翻页间隔 4~6s、详情间隔 3~5s（含随机抖动）；页数上限 4；单轮详情上限 10；
+  检测到验证码/安全校验/登录失效立即熔断退出并提示
 - 输出 UTF-8-SIG CSV（Excel 直接打开不乱码），含职位链接列，方便手动回访
 
 ## 安装
@@ -27,14 +29,17 @@ Windows + Python 3.10+（本项目在 3.10 上验证；DrissionPage 4.1.1.4）�
 
 ## 使用
 
-    # 检索杭州的 Java 开发职位，抓 3 页（含职位描述）
-    python -m boss_archiver --city 杭州 --query "Java开发" --pages 3
+    # 默认：只导职位列表（杭州 / Java开发 / 2 页，翻页间隔 4~6s）
+    python -m boss_archiver --city 杭州 --query Java开发
 
-    # 跳过“手动微调筛选”的暂停，全自动执行
+    # 抓职位描述（显式开启；单轮最多 10 条，每条间隔 3~5s）
+    python -m boss_archiver --city 杭州 --query Java开发 --detail
+
+    # 控制页数与详情条数
+    python -m boss_archiver --city 北京 --query AI产品经理 --pages 1 --detail --max-details 5
+
+    # 跳过“人工微调筛选”的暂停，全自动执行
     python -m boss_archiver --city 深圳 --query 数据分析 --no-refine
-
-    # 只导列表不抓详情（更快、更克制）
-    python -m boss_archiver --city 北京 --query AI产品经理 --no-detail --pages 2
 
     # 城市直接传 code；指定输出文件
     python -m boss_archiver --city 101210100 --query 测试 --out my.csv
@@ -44,7 +49,7 @@ Windows + Python 3.10+（本项目在 3.10 上验证；DrissionPage 4.1.1.4）�
 
 流程说明：脚本会打开带登录态的浏览器窗口 → 若登录失效则引导扫码（一次，之后复用）→
 按参数打开检索页并发起搜索 →（默认）等待你在浏览器里微调筛选条件后按回车 → 自动翻页收集 →
-串行抓取职位描述 → 写入 out/ 目录 CSV。
+（仅加 --detail 时）以 3~5s 间隔串行抓取最多 10 条职位描述 → 写入 out/ 目录 CSV。
 
 ## 开发与验证（最终 Gate）
 

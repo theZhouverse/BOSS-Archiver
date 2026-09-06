@@ -21,11 +21,21 @@ def test_resolve_unknown_city_lists_usage():
 
 
 def test_settings_pages_bounds():
-    good = Settings(pages=8)
+    good = Settings(pages=4)
     good.validate()
-    for bad in (0, 9, -1):
+    for bad in (0, 5, -1):
         with pytest.raises(UsageError):
             Settings(pages=bad).validate()
+
+
+def test_settings_detail_defaults_and_budget():
+    settings = Settings()
+    assert settings.fetch_details is False  # 保守默认：只导列表
+    assert settings.max_details_per_run == 10
+    Settings(max_details_per_run=1).validate()
+    for bad in (0, -1):
+        with pytest.raises(UsageError):
+            Settings(max_details_per_run=bad).validate()
 
 
 def test_settings_interval_guard():

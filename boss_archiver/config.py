@@ -91,15 +91,16 @@ class Settings:
     city: str = "杭州"
     query: str = ""
     # 采集控制
-    pages: int = 3  # 期望页数，1 <= pages <= max_pages
-    fetch_details: bool = True  # 是否抓取职位描述
+    pages: int = 2  # 期望页数，1 <= pages <= max_pages
+    fetch_details: bool = False  # 默认只导列表；职位描述需 --detail 显式开启
     refine_filters: bool = True  # 抓取前暂停，允许人工微调页面筛选条件
-    # 风控节拍（护栏默认值，下调需人工批准，见 AGENTS.md）
-    min_page_interval_s: float = 2.5
-    page_interval_jitter_s: float = 1.5
-    min_detail_interval_s: float = 0.8
-    detail_interval_jitter_s: float = 1.0
-    max_pages: int = 8  # 页数硬上限（防呆兜底）
+    # 风控节拍（保守默认值，2026-09-07 经用户确认收敛；下调需人工批准，见 AGENTS.md）
+    min_page_interval_s: float = 4.0
+    page_interval_jitter_s: float = 2.0
+    min_detail_interval_s: float = 3.0
+    detail_interval_jitter_s: float = 2.0
+    max_pages: int = 4  # 页数硬上限（防呆兜底）
+    max_details_per_run: int = 10  # 单轮详情抓取次数上限（成功+失败，保守）
     # 浏览器与输出
     profile_dir: Path = Path(".runtime") / "browser_profile"
     out_dir: Path = Path("out")
@@ -111,6 +112,8 @@ class Settings:
     def validate(self) -> None:
         if not isinstance(self.pages, int) or not (1 <= self.pages <= self.max_pages):
             raise UsageError(f"页数需为 1~{self.max_pages} 的整数，收到：{self.pages!r}")
+        if not isinstance(self.max_details_per_run, int) or self.max_details_per_run < 1:
+            raise UsageError(f"单轮详情次数上限需为 >=1 的整数，收到：{self.max_details_per_run!r}")
         if self.min_page_interval_s < 0.5 or self.min_detail_interval_s < 0.3:
             raise UsageError("节拍间隔低于护栏下限（翻页 >=0.5s、详情 >=0.3s），不允许")
         self.query = (self.query or "").strip()

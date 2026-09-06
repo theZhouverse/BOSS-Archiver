@@ -12,7 +12,7 @@ from .config import CITY_CODES, Settings
 from .errors import ChallengeError, CollectorError, LoginError, UsageError
 from .writer import default_output_path, write_csv
 
-DEFAULT_PAGES = 3
+DEFAULT_PAGES = 2
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -24,8 +24,10 @@ def build_parser() -> argparse.ArgumentParser:
                         help="城市名（杭州/杭州市）或城市 code（101210100）；--list-cities 查看内置城市")
     parser.add_argument("--query", "-q", default="", help="职位关键词，如 Java开发")
     parser.add_argument("--pages", "-p", type=int, default=DEFAULT_PAGES,
-                        help=f"抓取页数（1~8，默认 {DEFAULT_PAGES}）")
-    parser.add_argument("--no-detail", action="store_true", help="跳过职位描述抓取，只导列表")
+                        help=f"抓取页数（1~4，默认 {DEFAULT_PAGES}）")
+    parser.add_argument("--detail", action="store_true", help="抓取职位描述（默认只导列表；--max-details 控制条数）")
+    parser.add_argument("--max-details", type=int, default=10,
+                        help="单轮详情抓取次数上限（默认 10，含失败尝试）")
     parser.add_argument("--no-refine", action="store_true", help="跳过人工微调筛选的暂停，全自动执行")
     parser.add_argument("--out", type=Path, default=None,
                         help="输出文件路径（默认 out/boss直聘_城市_关键词_时间戳.csv）")
@@ -58,7 +60,8 @@ def main(argv: list[str] | None = None) -> int:
             city=args.city,
             query=args.query,
             pages=args.pages,
-            fetch_details=not args.no_detail,
+            fetch_details=args.detail,
+            max_details_per_run=args.max_details,
             refine_filters=not args.no_refine,
             profile_dir=args.profile if args.profile is not None else Path(".runtime") / "browser_profile",
             output_path=args.out,
@@ -90,7 +93,12 @@ def main(argv: list[str] | None = None) -> int:
     print("=" * 62)
     print(f"检索条件：城市={settings.city}（code {settings.city_code()}） "
           f"关键词={settings.query or '（不限）'} 目标页数={settings.pages}")
-    print(f"实际抓取 {result.pages_fetched} 页；去重后职位 {rows} 条；详情抓取失败 {result.detail_failures} 条")
+    if settings.fetch_details:
+        print(f"实际抓取 {result.pages_fetched} 页；去重后职位 {rows} 条；"
+              f"详情抓取成功 {result.detail_fetched} 条 / 失败 {result.detail_failures} 条（单轮上限 {settings.max_details_per_run}）")
+    else:
+        print(f"实际抓取 {result.pages_fetched} 页；去重后职位 {rows} 条；"
+              f"职位描述未抓取（如需请加 --detail，默认只导列表）")
     print(f"输出文件：{path.resolve()}")
     print("=" * 62)
     return 0
