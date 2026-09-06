@@ -65,8 +65,10 @@
 - Evidence（真机，2026-09-07，杭州/Java开发，登录态 .runtime/browser_profile 复用）:
   - 06:07 保守档复跑：1 页 15 条 + --detail --max-details 5 → 成功 5/失败 0，达上限自动停止
   - 06:08 列表模式复跑：登录态直接复用（无多余登录页跳转），1 页 15 条
+  - 06:20 全流程复跑（扫码登录后自动化模式）：1 页 15 条 + 5 详情 0 失败，
+    到单轮上限自动停止 → out/boss直聘_杭州_Java开发_20260907_062035.csv（16 行）
   - 产出：out/boss直聘_杭州_Java开发_*.csv
-- Commits: a44a6ff（保守档）、4da019c（登录复用修复）
+- Commits: a44a6ff（保守档）、4da019c（登录复用修复）、317c954/后续 docs 提交（证据回填）
 
 ## Review Findings
 
